@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  writer1:
+    build: ./writer
+    ports: ["8081:80"]
+
+  writer2:
+    build: ./writer
+    ports: ["8082:80"]
+
+  reader1:
+    build: ./reader
+    ports: ["8091:80"]
+
+  reader2:
+    build: ./reader
+    ports: ["8092:80"]
+
+  mapper:
+    build: ./mapper
+    ports: ["8100:80"]

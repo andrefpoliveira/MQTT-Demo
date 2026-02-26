@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Reader</title></head>
+<body>
+<h2>Reader</h2>
+
+<p>MAC: <span id="mac"></span></p>
+<pre id="log"></pre>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+<script>
+const MAC = "AA:BB:CC:DD:" + Math.floor(Math.random()*90+10);
+document.getElementById("mac").textContent = MAC;
+
+let client;
+let subscribed = [];
+
+function connect() {
+  const brokerHost = window.location.hostname || "localhost";
+  client = new Paho.MQTT.Client(brokerHost, 9001, "reader_" + Math.random());
+
+  client.onMessageArrived = onMessage;
+
+  client.connect({
+    onSuccess: () => {
+      log(`Connected to ${brokerHost}:9001`);
+      client.subscribe(`config/${MAC}`);
+    },
+    onFailure: err => log("Connect failed: " + (err.errorMessage || "unknown error")),
+    useSSL: false
+  });
+}
+
+function onMessage(message) {
+  if (message.destinationName === `config/${MAC}`) {
+    const config = JSON.parse(message.payloadString);
+    if (Array.isArray(config.unsubscribe)) {
+      unsubscribeTopics(config.unsubscribe);
+      return;
+    }
+    updateSubscriptions(config.topics || []);
+  } else {
+    log("Message: " + message.payloadString);
+  }
+}
+
+function unsubscribeTopics(topics) {
+  topics.forEach(t => {
+    if (subscribed.includes(t)) {
+      client.unsubscribe(t);
+      log("Unsubscribed: " + t);
+    }
+  });
+
+  subscribed = subscribed.filter(t => !topics.includes(t));
+}
+
+function updateSubscriptions(topics) {
+  subscribed
+    .filter(t => !topics.includes(t))
+    .forEach(t => {
+      client.unsubscribe(t);
+      log("Unsubscribed: " + t);
+    });
+
+  topics.forEach(t => {
+    if (!subscribed.includes(t)) {
+      client.subscribe(t);
+      subscribed.push(t);
+      log("Subscribed: " + t);
+    }
+  });
+
+  subscribed = subscribed.filter(t => topics.includes(t));
+}
+
+function log(t) {
+  document.getElementById("log").textContent += t + "\n";
+}
+
+connect();
+</script>
+</body>
+</html>

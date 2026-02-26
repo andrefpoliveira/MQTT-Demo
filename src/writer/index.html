@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Writer</title></head>
+<body>
+<h2>Writer</h2>
+
+<label>Topic:
+  <select id="topic">
+    <option value="event/1">event/1</option>
+    <option value="event/2">event/2</option>
+    <option value="event/3">event/3</option>
+  </select>
+</label>
+
+<br><br>
+
+<label>Message:
+  <input id="message">
+</label>
+
+<button onclick="publish()">Send</button>
+
+<pre id="log"></pre>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+<script>
+const brokerHost = window.location.hostname || "localhost";
+const client = new Paho.MQTT.Client(brokerHost, 9001, "writer_" + Math.random());
+
+client.connect({
+  onSuccess: () => log(`Connected to ${brokerHost}:9001`),
+  onFailure: err => log("Connect failed: " + (err.errorMessage || "unknown error")),
+  useSSL: false
+});
+
+function publish() {
+  const topic = document.getElementById("topic").value;
+  const msg = document.getElementById("message").value;
+
+  const message = new Paho.MQTT.Message(msg);
+  message.destinationName = topic;
+  client.send(message);
+
+  log(`Sent to ${topic}: ${msg}`);
+}
+
+function log(t) {
+  document.getElementById("log").textContent += t + "\n";
+}
+</script>
+</body>
+</html>

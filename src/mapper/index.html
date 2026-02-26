@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Mapper</title></head>
+<body>
+<h2>Connection Mapper</h2>
+
+<div>
+  <h3>Reader MAC</h3>
+  <input id="mac" placeholder="AA:BB:CC:DD:01">
+</div>
+
+<div>
+  <h3>Topics (comma separated)</h3>
+  <input id="topics" placeholder="event/1,event/2">
+</div>
+
+<button onclick="send()">Apply</button>
+<button onclick="unsubscribeSelected()">Unsubscribe selected</button>
+<button onclick="unsubscribeAll()">Unsubscribe all</button>
+
+<pre id="log"></pre>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+<script>
+const brokerHost = window.location.hostname || "localhost";
+const client = new Paho.MQTT.Client(brokerHost, 9001, "mapper_" + Math.random());
+
+client.onConnectionLost = response => {
+  log("Connection lost: " + (response.errorMessage || "unknown error"));
+};
+
+client.connect({
+  onSuccess: () => log(`Connected to ${brokerHost}:9001`),
+  onFailure: err => log("Connect failed: " + (err.errorMessage || "unknown error")),
+  useSSL: false
+});
+
+function send() {
+  if (!client.isConnected()) {
+    log("Not connected to broker");
+    return;
+  }
+
+  const mac = document.getElementById("mac").value;
+  const topics = document.getElementById("topics").value
+    .split(",")
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  const msg = new Paho.MQTT.Message(JSON.stringify({ topics }));
+  msg.destinationName = `config/${mac}`;
+  try {
+    client.send(msg);
+  } catch (error) {
+    log("Send failed: " + error.message);
+    return;
+  }
+
+  log(`Mapped ${mac} -> ${topics.join(",")}`);
+}
+
+function unsubscribeAll() {
+  if (!client.isConnected()) {
+    log("Not connected to broker");
+    return;
+  }
+
+  const mac = document.getElementById("mac").value.trim();
+  if (!mac) {
+    log("Reader MAC is required");
+    return;
+  }
+
+  const msg = new Paho.MQTT.Message(JSON.stringify({ topics: [] }));
+  msg.destinationName = `config/${mac}`;
+
+  try {
+    client.send(msg);
+  } catch (error) {
+    log("Send failed: " + error.message);
+    return;
+  }
+
+  log(`Unsubscribed all topics for ${mac}`);
+}
+
+function unsubscribeSelected() {
+  if (!client.isConnected()) {
+    log("Not connected to broker");
+    return;
+  }
+
+  const mac = document.getElementById("mac").value.trim();
+  if (!mac) {
+    log("Reader MAC is required");
+    return;
+  }
+
+  const topics = document.getElementById("topics").value
+    .split(",")
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  if (!topics.length) {
+    log("Provide at least one topic to unsubscribe");
+    return;
+  }
+
+  const msg = new Paho.MQTT.Message(JSON.stringify({ unsubscribe: topics }));
+  msg.destinationName = `config/${mac}`;
+
+  try {
+    client.send(msg);
+  } catch (error) {
+    log("Send failed: " + error.message);
+    return;
+  }
+
+  log(`Unsubscribed for ${mac}: ${topics.join(",")}`);
+}
+
+function log(t) {
+  document.getElementById("log").textContent += t + "\n";
+}
+</script>
+</body>
+</html>
